@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misión Quirófano Pro - Elite Surgical Safety</title>
+    
+    <meta name="theme-color" content="#00897b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="description" content="Simulador avanzado de seguridad quirúrgica OMS">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        clinical: {
+                            light: '#e0f2f1',
+                            DEFAULT: '#00897b',
+                            dark: '#004d40',
+                            blue: '#1e3a8a',
+                        }
+                    },
+                    animation: {
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+                    },
+                    keyframes: {
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .dark body { background-color: #0f172a; }
+        body { transition: background-color 0.3s ease; }
+        .progress-fill { transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .timer-low { color: #ef4444; animation: pulse 1s infinite; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 font-sans text-slate-800 dark:text-slate-100">
+
+    <button onclick="toggleDarkMode()" class="fixed top-4 right-4 p-2 rounded-full bg-white dark:bg-slate-800 shadow-lg no-print z-50">
+        <span class="dark:hidden">🌙</span><span class="hidden dark:inline">☀️</span>
+    </button>
+
+    <div class="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden relative border border-slate-200 dark:border-slate-800">
+        
+        <div class="h-1.5 bg-slate-100 dark:bg-slate-800 w-full no-print">
+            <div id="progressBar" class="h-full bg-clinical progress-fill" style="width: 0%"></div>
+        </div>
+
+        <div id="screen-start" class="p-8 sm:p-12 text-center animate-slide-up">
+            <div class="inline-block p-4 rounded-2xl bg-clinical-light dark:bg-clinical/20 mb-6">
+                <svg class="w-12 h-12 text-clinical" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-900 dark:text-white mb-2">Misión Quirófano <span class="text-clinical">PRO</span></h1>
+            <p class="text-slate-500 dark:text-slate-400 mb-8">Simulador de alta fidelidad para seguridad quirúrgica.</p>
+            
+            <div class="max-w-xs mx-auto space-y-4">
+                <input type="text" id="playerName" placeholder="Nombre completo" class="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 focus:ring-2 focus:ring-clinical outline-none transition text-center">
+                <button id="btnStart" class="w-full bg-clinical hover:bg-clinical-dark text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-105 active:scale-95">
+                    Iniciar Simulación
+                </button>
+            </div>
+        </div>
+
+        <div id="screen-quiz" class="hidden p-6 sm:p-10 animate-slide-up">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex flex-col">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Pregunta</span>
+                    <span class="text-xl font-bold" id="currentQuestionNum">1/10</span>
+                </div>
+                <div id="timerDisplay" class="text-2xl font-mono font-bold text-clinical">20s</div>
+                <div class="text-right">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Puntuación</span>
+                    <div class="flex items-center gap-2">
+                        <span id="scoreDisplay" class="text-xl font-bold text-clinical">100</span>
+                        <span id="streakBadge" class="hidden bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full animate-bounce">RACHA x2</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="questionContainer">
+                <div id="visualCase" class="mb-6 bg-slate-50 dark:bg-slate-800 rounded-xl p-4 flex justify-center border border-dashed border-slate-300 dark:border-slate-700">
+                    </div>
+
+                <h2 id="questionText" class="text-xl font-bold mb-6 min-h-[3.5rem]"></h2>
+
+                <div id="optionsContainer" class="grid grid-cols-1 gap-3 mb-6"></div>
+
+                <div id="feedbackBox" class="hidden p-4 rounded-xl border-l-4 mb-6">
+                    <p id="feedbackExplanation" class="text-sm font-medium"></p>
+                </div>
+
+                <button id="btnNext" class="hidden w-full bg-slate-900 dark:bg-clinical text-white font-bold py-3 rounded-xl hover:opacity-90 transition">
+                    Continuar ➔
+                </button>
+            </div>
+        </div>
+
+        <div id="screen-results" class="hidden p-8 text-center animate-slide-up">
+            <div id="certificateArea" class="bg-white p-8 border-8 border-double border-clinical-light rounded-lg mb-8 relative">
+                <div class="absolute top-4 right-4 opacity-10 no-print">
+                    <svg class="w-24 h-24 text-clinical" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path></svg>
+                </div>
+                <h3 class="text-clinical font-serif text-xl mb-2">Certificado de Competencia</h3>
+                <p class="text-slate-500 text-sm mb-4">Otorgado a:</p>
+                <h4 id="finalName" class="text-2xl font-bold border-b-2 border-slate-100 inline-block px-8 mb-4">NOMBRE</h4>
+                <div class="flex justify-around items-center mt-6">
+                    <div>
+                        <p class="text-xs uppercase text-slate-400">Puntaje</p>
+                        <p id="finalScore" class="text-3xl font-black text-clinical">0</p>
+                    </div>
+                    <div>
+                        <p class="text-xs uppercase text-slate-400">Evaluación</p>
+                        <p id="finalLabel" class="font-bold"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 no-print">
+                <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl">
+                    <h5 class="text-xs font-bold uppercase text-slate-400 mb-3">Ranking Institucional</h5>
+                    <ul id="leaderboardList" class="text-left text-sm space-y-2"></ul>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <button onclick="window.print()" class="bg-clinical text-white font-bold py-3 rounded-xl hover:bg-clinical-dark transition">Imprimir Certificado</button>
+                    <button id="btnRestart" class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold py-3 rounded-xl">Nueva Evaluación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA DE PREGUNTAS (POOL EXTENDIDO) ---
+        const ALL_QUESTIONS = [
+            {
+                q: "¿Qué elemento es OBLIGATORIO confirmar durante el 'Sign-In' antes de la anestesia?",
+                o: ["Color de ojos del paciente", "Pulso y saturación de oxígeno (Pulsioxímetro)", "Nombre del cirujano plástico", "Marca de la ropa interior"],
+                a: 1,
+                e: "La OMS exige la confirmación del funcionamiento del pulsioxímetro antes de inducir la anestesia.",
+                svg: `<path d="M4 10h16M4 14h16M9 3L7 21M17 3l-2 18" stroke="currentColor" stroke-width="2"/>`
+            },
+            {
+                q: "En el Time-Out, ¿quién debe confirmar el procedimiento y el sitio quirúrgico?",
+                o: ["Solo el cirujano", "Solo la enfermera", "Todo el equipo en conjunto", "El personal de limpieza"],
+                a: 2,
+                e: "El Time-Out es una comunicación verbal compartida por TODO el equipo.",
+                svg: `<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="2"/>`
+            },
+            {
+                q: "Se detecta una gasa faltante al cierre. ¿Cuál es la acción inmediata?",
+                o: ["Ignorarlo si el paciente está estable", "Cerrar y pedir Rx en piso", "Informar al equipo, buscar en cavidad y campos, y solicitar Rx si no aparece", "Culpar a la circulante"],
+                a: 2,
+                e: "Protocolo de seguridad: Comunicación inmediata y búsqueda exhaustiva antes de finalizar.",
+                svg: `<rect x="6" y="6" width="12" height="12" stroke="currentColor" stroke-width="2"/><path d="M6 12h12M12 6v12" stroke="currentColor" stroke-width="2"/>`
+            },
+            {
+                q: "¿Cuál es el tiempo mínimo recomendado de lavado quirúrgico con gluconato de clorhexidina?",
+                o: ["10 segundos", "2 a 5 minutos", "15 minutos exactos", "No es necesario si hay guantes"],
+                a: 1,
+                e: "Un lavado de 2 a 5 minutos asegura la eliminación de flora transitoria y reducción de residente.",
+                svg: `<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="currentColor" stroke-width="2"/>`
+            },
+            {
+                q: "¿Qué se debe verificar específicamente sobre los implantes antes del Time-Out?",
+                o: ["Su costo", "Disponibilidad y esterilidad", "Marca comercial", "Si combinan con el equipo"],
+                a: 1,
+                e: "La falta de prótesis o implantes en medio de la cirugía es un error crítico de planificación.",
+                svg: `<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke="currentColor" stroke-width="2"/>`
+            }
+            // ... Se pueden añadir infinitas preguntas siguiendo el formato
+        ];
+
+        // --- ESTADO ---
+        let state = {
+            currentPool: [],
+            qIndex: 0,
+            score: 100,
+            streak: 0,
+            timeLeft: 20,
+            timer: null,
+            playerName: ""
+        };
+
+        // --- LÓGICA CORE ---
+        function init() {
+            document.getElementById('btnStart').onclick = startSimulation;
+            document.getElementById('btnNext').onclick = nextQuestion;
+            document.getElementById('btnRestart').onclick = () => location.reload();
+            
+            // Enter key
+            document.addEventListener('keydown', e => {
+                if(e.key === 'Enter') {
+                    if(!document.getElementById('screen-start').classList.contains('hidden')) startSimulation();
+                    else if(!document.getElementById('btnNext').classList.contains('hidden')) nextQuestion();
+                }
+            });
+        }
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function startSimulation() {
+            const name = document.getElementById('playerName').value.trim();
+            if(!name) return document.getElementById('playerName').classList.add('animate-shake');
+            
+            state.playerName = name;
+            state.currentPool = [...ALL_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 5); // 5 preguntas para demo rápida
+            
+            document.getElementById('screen-start').classList.add('hidden');
+            document.getElementById('screen-quiz').classList.remove('hidden');
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            resetQuestionUI();
+            const data = state.currentPool[state.qIndex];
+            
+            document.getElementById('currentQuestionNum').innerText = `${state.qIndex + 1}/${state.currentPool.length}`;
+            document.getElementById('questionText').innerText = data.q;
+            document.getElementById('visualCase').innerHTML = `<svg class="w-16 h-16 text-clinical/40" fill="none" viewBox="0 0 24 24">${data.svg}</svg>`;
+            
+            const optionsHtml = data.o.map((opt, i) => `
+                <button onclick="checkAnswer(${i})" class="option-btn w-full p-4 text-left rounded-xl border-2 border-slate-100 dark:border-slate-800 hover:border-clinical transition flex justify-between items-center group">
+                    <span>${opt}</span>
+                    <span class="opacity-0 group-hover:opacity-100 text-clinical">●</span>
+                </button>
+            `).join('');
+            
+            document.getElementById('optionsContainer').innerHTML = optionsHtml;
+            document.getElementById('progressBar').style.width = `${((state.qIndex) / state.currentPool.length) * 100}%`;
+            
+            startTimer();
+        }
+
+        function startTimer() {
+            state.timeLeft = 20;
+            const display = document.getElementById('timerDisplay');
+            display.classList.remove('timer-low');
+            display.innerText = `20s`;
+            
+            clearInterval(state.timer);
+            state.timer = setInterval(() => {
+                state.timeLeft--;
+                display.innerText = `${state.timeLeft}s`;
+                if(state.timeLeft <= 5) display.classList.add('timer-low');
+                if(state.timeLeft <= 0) {
+                    clearInterval(state.timer);
+                    checkAnswer(-1); // Tiempo agotado
+                }
+            }, 1000);
+        }
+
+        function checkAnswer(idx) {
+            clearInterval(state.timer);
+            const correct = state.currentPool[state.qIndex].a;
+            const buttons = document.querySelectorAll('.option-btn');
+            
+            buttons.forEach(btn => btn.disabled = true);
+            
+            if(idx === correct) {
+                state.score += (10 + (state.timeLeft > 10 ? 5 : 0)); // Bonus velocidad
+                state.streak++;
+                showFeedback(true);
+            } else {
+                state.score = Math.max(0, state.score - 10);
+                state.streak = 0;
+                showFeedback(false, idx === -1 ? "¡Se acabó el tiempo!" : "Incorrecto");
+                if(idx !== -1) buttons[idx].classList.add('border-red-500', 'bg-red-50');
+            }
+            
+            buttons[correct].classList.add('border-green-500', 'bg-green-50', 'dark:bg-green-900/20');
+            updateScoreDisplay();
+            document.getElementById('btnNext').classList.remove('hidden');
+        }
+
+        function updateScoreDisplay() {
+            document.getElementById('scoreDisplay').innerText = state.score;
+            const badge = document.getElementById('streakBadge');
+            if(state.streak >= 2) {
+                badge.innerText = `RACHA x${state.streak}`;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function showFeedback(isCorrect, customTitle) {
+            const box = document.getElementById('feedbackBox');
+            box.classList.remove('hidden');
+            box.className = `p-4 rounded-xl border-l-4 mb-6 ${isCorrect ? 'bg-green-50 border-green-500 text-green-800' : 'bg-red-50 border-red-500 text-red-800'}`;
+            document.getElementById('feedbackExplanation').innerText = state.currentPool[state.qIndex].e;
+        }
+
+        function nextQuestion() {
+            state.qIndex++;
+            if(state.qIndex < state.currentPool.length) {
+                renderQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('screen-quiz').classList.add('hidden');
+            document.getElementById('screen-results').classList.remove('hidden');
+            document.getElementById('progressBar').style.width = '100%';
+            
+            const label = state.score >= 160 ? 'Excelente' : (state.score >= 100 ? 'Bien hecho' : 'Regular');
+            const color = state.score >= 160 ? 'text-green-600' : (state.score >= 100 ? 'text-blue-600' : 'text-orange-600');
+            
+            document.getElementById('finalName').innerText = state.playerName;
+            document.getElementById('finalScore').innerText = state.score;
+            document.getElementById('finalLabel').innerText = label;
+            document.getElementById('finalLabel').className = `font-bold ${color}`;
+            
+            saveToRanking();
+        }
+
+        function saveToRanking() {
+            let ranking = JSON.parse(localStorage.getItem('quirofano_ranking') || '[]');
+            ranking.push({ name: state.playerName, score: state.score, date: new Date().toLocaleDateString() });
+            ranking.sort((a, b) => b.score - a.score);
+            ranking = ranking.slice(0, 10);
+            localStorage.setItem('quirofano_ranking', JSON.stringify(ranking));
+            
+            document.getElementById('leaderboardList').innerHTML = ranking.map((r, i) => `
+                <li class="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
+                    <span>${i+1}. ${r.name}</span>
+                    <span class="font-bold text-clinical">${r.score}</span>
+                </li>
+            `).join('');
+        }
+
+        function resetQuestionUI() {
+            document.getElementById('btnNext').classList.add('hidden');
+            document.getElementById('feedbackBox').classList.add('hidden');
+        }
+
+        init();
+    </script>
+</body>
+</html>
